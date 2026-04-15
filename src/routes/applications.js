@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const Application = require('../models/Application');
 const { protect } = require('../middleware/auth');
@@ -8,10 +9,20 @@ const AIVerificationService = require('../services/aiVerification');
 
 const router = express.Router();
 
+const UPLOAD_DIR = process.env.VERCEL === '1'
+  ? path.join('/tmp', 'uploads')
+  : path.join(__dirname, '../../uploads');
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads'));
+    try {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    } catch (error) {
+      return cb(error);
+    }
+
+    cb(null, UPLOAD_DIR);
   },
   filename: (req, file, cb) => {
     const uniqueName = `${Date.now()}-${uuidv4()}${path.extname(file.originalname)}`;
