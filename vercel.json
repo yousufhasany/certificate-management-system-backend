@@ -1,9 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
-    {
-      "source": "/uploads/:path*",
-      "destination": "/api/uploads/:path*"
-    }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "^/api$", "dest": "/api/[...path].js" },
+    { "src": "^/api/(.*)$", "dest": "/api/[...path].js" },
+    { "src": "^/uploads$", "dest": "/api/[...path].js" },
+    { "src": "^/uploads/(.*)$", "dest": "/api/[...path].js" }
   ]
 }

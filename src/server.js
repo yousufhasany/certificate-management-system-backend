@@ -70,6 +70,37 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'AI Certificate Management System API is running' });
 });
 
+// DB health check (used to verify MongoDB connectivity in deployments)
+app.get('/api/health/db', async (req, res) => {
+  try {
+    await connectDB();
+
+    const readyState = mongoose.connection.readyState;
+    if (!mongoose.connection.db) {
+      return res.status(503).json({
+        status: 'ERROR',
+        message: 'Database connection is not ready',
+        db: { connected: false, readyState }
+      });
+    }
+
+    const ping = await mongoose.connection.db.admin().ping();
+
+    return res.json({
+      status: 'OK',
+      message: 'Database reachable',
+      db: { connected: true, readyState, ping }
+    });
+  } catch (error) {
+    console.error('DB health check error:', error);
+    return res.status(503).json({
+      status: 'ERROR',
+      message: 'Database unavailable',
+      error: error?.name || 'UnknownError'
+    });
+  }
+});
+
 // Only start a port listener when running locally (not in Vercel serverless)
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
