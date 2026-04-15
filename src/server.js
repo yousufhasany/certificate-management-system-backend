@@ -11,7 +11,25 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+
+// Body parsing
+// - Locally: parse JSON bodies via express.json()
+// - On Vercel: req.body may already be populated; avoid double-reading the stream (can cause 400 Bad Request)
+const jsonParser = express.json();
+app.use((req, res, next) => {
+  if (req.body !== undefined) {
+    if (typeof req.body === 'string' && req.body.length) {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch (e) {
+        // Leave as-is; routes can validate as needed.
+      }
+    }
+    return next();
+  }
+
+  return jsonParser(req, res, next);
+});
 
 // Uploads: Vercel serverless file system is read-only except /tmp
 const UPLOAD_DIR = process.env.VERCEL === '1'
@@ -64,6 +82,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+// Return JSON for invalid JSON payloads instead of the default HTML error page
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ message: 'Invalid JSON' });
+  }
+  return next(err);
+});
 
 // Health check
 app.get('/api/health', (req, res) => {
