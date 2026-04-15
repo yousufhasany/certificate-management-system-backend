@@ -117,11 +117,14 @@ router.post('/login', async (req, res) => {
 // @access  Public
 router.post('/firebase', async (req, res) => {
   try {
-    const { idToken } = req.body;
+    const { idToken, fullName, phone } = req.body;
 
     if (!idToken) {
       return res.status(400).json({ message: 'Missing Firebase ID token' });
     }
+
+    const safeFullName = typeof fullName === 'string' ? fullName.trim().slice(0, 120) : '';
+    const safePhone = typeof phone === 'string' ? phone.trim().slice(0, 30) : '';
 
     const admin = initFirebaseAdmin();
     const decoded = await admin.auth().verifyIdToken(idToken);
@@ -134,16 +137,34 @@ router.post('/firebase', async (req, res) => {
 
     if (!user) {
       user = await User.create({
-        fullName: decoded.name || 'Firebase User',
+        fullName: safeFullName || decoded.name || 'Firebase User',
         email: decoded.email,
-        phone: decoded.phone_number || 'N/A',
+        phone: safePhone || decoded.phone_number || 'N/A',
         password: crypto.randomBytes(24).toString('hex'),
         role: 'student',
         firebaseUid: decoded.uid
       });
-    } else if (!user.firebaseUid && decoded.uid) {
-      user.firebaseUid = decoded.uid;
-      await user.save();
+    } else {
+      let changed = false;
+
+      if (!user.firebaseUid && decoded.uid) {
+        user.firebaseUid = decoded.uid;
+        changed = true;
+      }
+
+      if (safeFullName && (!user.fullName || user.fullName === 'Firebase User')) {
+        user.fullName = safeFullName;
+        changed = true;
+      }
+
+      if (safePhone && (!user.phone || user.phone === 'N/A')) {
+        user.phone = safePhone;
+        changed = true;
+      }
+
+      if (changed) {
+        await user.save();
+      }
     }
 
     const token = generateToken(user._id);
