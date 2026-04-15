@@ -25,6 +25,7 @@ try {
 }
 
 app.use('/uploads', express.static(UPLOAD_DIR));
+app.use('/api/uploads', express.static(UPLOAD_DIR));
 
 // MongoDB Connection (cache across serverless invocations)
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/certificate_management';

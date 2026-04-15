@@ -1,8 +1,9 @@
 {
-  "version": 2,
-  "functions": {
-    "api/[...path].js": {
-      "runtime": "nodejs20.x"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/uploads/:path*",
+      "destination": "/api/uploads/:path*"
     }
-  }
+  ]
 }
