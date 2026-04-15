@@ -101,6 +101,13 @@ class AIVerificationService {
       }
 
       if (extension === '.jpg' || extension === '.jpeg' || extension === '.png') {
+        // Tesseract.js is CPU-heavy and can exceed serverless time limits.
+        // On Vercel we skip OCR to ensure submissions return quickly.
+        if (process.env.VERCEL === '1') {
+          console.log('[OCR] Skipping Tesseract on Vercel', { originalName });
+          return { text: '', engine: 'skipped', attempted: false, readable: false, confidence: 0 };
+        }
+
         console.log('[OCR] Starting Tesseract for image', { originalName, resolvedPath });
         const ocrResult = await Tesseract.recognize(resolvedPath, 'eng', {
           logger: () => {}
@@ -539,7 +546,31 @@ class AIVerificationService {
     // Small delay to keep UX behavior similar to the current async pipeline.
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const extractedData = await this.extractDataFromDocument(document, formData);
+    const timeoutMs = Number(
+      process.env.AI_VERIFICATION_TIMEOUT_MS
+        || (process.env.VERCEL === '1' ? 8000 : 20000)
+    );
+
+    const extractedData = await Promise.race([
+      this.extractDataFromDocument(document, formData),
+      new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            extractedName: '',
+            extractedRoll: '',
+            extractedReg: '',
+            extractedYear: '',
+            extractedBoard: '',
+            ocrText: '',
+            ocrEngine: 'timeout',
+            ocrAttempted: true,
+            ocrReadable: false,
+            ocrConfidence: 0,
+            confidenceScore: 35
+          });
+        }, timeoutMs);
+      })
+    ]);
 
     const verificationResult = this.verifyDocument(extractedData, formData, document);
 
