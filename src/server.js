@@ -127,6 +127,31 @@ app.get('/api/health/db', async (req, res) => {
   }
 });
 
+// Firebase Admin health check (used to verify Firebase Admin credentials in deployments)
+app.get('/api/health/firebase', (req, res) => {
+  try {
+    // Require lazily to avoid initializing Firebase Admin on cold start unless needed
+    const { initFirebaseAdmin } = require('./services/firebaseAdmin');
+    const admin = initFirebaseAdmin();
+    const appInstance = admin.app();
+
+    return res.json({
+      status: 'OK',
+      message: 'Firebase Admin initialized',
+      firebase: {
+        projectId: appInstance?.options?.projectId || process.env.FIREBASE_PROJECT_ID || null
+      }
+    });
+  } catch (error) {
+    console.error('Firebase health check error:', error);
+    return res.status(503).json({
+      status: 'ERROR',
+      message: 'Firebase Admin not configured',
+      error: error?.message || error?.name || 'UnknownError'
+    });
+  }
+});
+
 // Only start a port listener when running locally (not in Vercel serverless)
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;

@@ -186,6 +186,8 @@ router.post('/firebase', async (req, res) => {
       return res.status(503).json({ message: 'Database unavailable. Try again shortly.' });
     }
 
+    const firebaseCode = error?.code || error?.errorInfo?.code;
+
     if (error && typeof error.message === 'string') {
       if (
         error.message.includes('Firebase Admin SDK not configured')
@@ -196,23 +198,25 @@ router.post('/firebase', async (req, res) => {
       }
     }
 
-    if (error && typeof error.code === 'string' && error.code.startsWith('auth/')) {
-      return res.status(401).json({ message: 'Invalid Firebase token' });
+    if (typeof firebaseCode === 'string' && firebaseCode.startsWith('auth/')) {
+      return res.status(401).json({ message: 'Invalid Firebase token', error: firebaseCode });
     }
 
     if (
       error
       && (
-        error.code === 'app/invalid-credential'
+        firebaseCode === 'app/invalid-credential'
         || error.codePrefix === 'app'
-        || error.errorInfo?.code === 'app/invalid-credential'
       )
     ) {
-      return res.status(500).json({ message: 'Invalid Firebase Admin credentials. Check FIREBASE_PRIVATE_KEY format.' });
+      return res.status(500).json({ message: 'Invalid Firebase Admin credentials. Check FIREBASE_PRIVATE_KEY format.', error: firebaseCode || 'app/invalid-credential' });
     }
 
     console.error('Firebase login error:', error);
-    res.status(500).json({ message: 'Server error during Firebase login' });
+    return res.status(500).json({
+      message: 'Server error during Firebase login',
+      error: firebaseCode || error?.name || 'UnknownError'
+    });
   }
 });
 
